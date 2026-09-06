@@ -1,3 +1,4 @@
 .env
-secrets/
+secrets/*
 caddy_config/naive-users.caddy
+!secrets/.gitkeep
