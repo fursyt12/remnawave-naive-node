@@ -1,5 +1,11 @@
 # remnawave-naive-node
 
+Compatibility
+
+This fork is fully compatible with:
+
+[remnawave-subscription-page-naive-olcrtc](https://github.com/fursyt12/remnawave-subscription-page-naive-olcrtc)
+
 Two containers on one bridge network:
 
 - **caddy** — custom-built Caddy (stock image doesn't have `forward_proxy`, it's
