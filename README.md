@@ -1,4 +1,4 @@
-# naive-proxy-stack
+# remnawave-naive-node
 
 Two containers on one bridge network:
 
