@@ -8,12 +8,18 @@ This fork is fully compatible with:
 
 Two containers on one bridge network:
 
-- **caddy** — custom-built Caddy (stock image doesn't have `forward_proxy`, it's
-  built from `github.com/klzgrad/forwardproxy@naive` via xcaddy). Terminates TLS,
-  serves the naive proxy + decoy page, auto-issues/renews the cert.
-- **sync** — alpine container looping your `sync-naive.sh` every `SYNC_INTERVAL`
-  seconds. Pulls users from Remnawave, manages passwords, writes the Caddy
-  basic_auth file, scp's the links file out, and reloads Caddy.
+* **caddy** — custom-built Caddy (stock image doesn't have `forward_proxy`, it's
+built from `[github.com/klzgrad/forwardproxy@naive](https://github.com/klzgrad/forwardproxy@naive)` via xcaddy). Terminates TLS,
+serves the naive proxy + decoy page, auto-issues/renews the cert.
+* **sync** — alpine container looping your `sync-naive.sh` every `SYNC_INTERVAL`
+seconds. Pulls users from Remnawave, filters them by squad assignment, manages
+passwords, writes the Caddy basic_auth file, scp's the links file out, and reloads Caddy.
+
+## Squad Filtering Requirement
+
+To grant a user access and generate their Naïve config, **add them to a squad in Remnawave whose name contains `naive` (case-insensitive)** (e.g., `Naive-Proxy`, `naive_users`, `NAIVE`).
+
+Users not assigned to a matching squad will be ignored during the sync process.
 
 ## Why no `systemctl reload caddy` anymore
 
@@ -30,19 +36,21 @@ exits (`set -e`) instead of silently breaking prod.
 
 Nothing special to configure beyond what's already there — Caddy issues certs
 automatically for any domain in a site block, as long as:
-- `TLS_DOMAIN` actually resolves to this host,
-- ports **80** (ACME HTTP-01) and **443** are reachable from the internet,
-- the `caddy_data` volume persists across restarts (it does — named volume),
-- `TLS_EMAIL` is set (used for Let's Encrypt account/expiry notices).
+
+* `TLS_DOMAIN` actually resolves to this host,
+* ports **80** (ACME HTTP-01) and **443** are reachable from the internet,
+* the `caddy_data` volume persists across restarts (it does — named volume),
+* `TLS_EMAIL` is set (used for Let's Encrypt account/expiry notices).
 
 ## First run
 
 ```bash
-cp .env.example .env        # fill in RW_TOKEN, SSH_KEY_PATH, etc.
+cp .env.example .env         # fill in RW_TOKEN, SSH_KEY_PATH, etc.
 mkdir -p secrets
 cp /path/to/id_ed25519 secrets/          # or point SSH_KEY_PATH at it directly
 docker compose up -d --build
 docker compose logs -f sync              # watch the first sync pass
+
 ```
 
 `caddy_config/naive-users.caddy` ships as an empty placeholder so Caddy's
@@ -51,15 +59,16 @@ first pass.
 
 ## Gotchas worth knowing
 
-- **Secrets**: `.env` and `secrets/` hold the Remnawave token and the SSH
-  private key — gitignore both, don't bake them into the image.
-- **State persistence**: `sync_state` volume holds `naive-users.json`
-  (username→password mapping). Losing it means every user gets a new
-  password and every existing naive+https link breaks. Back it up.
-- **Host key checking**: the scp step uses
-  `StrictHostKeyChecking=accept-new` since there's no pre-seeded
-  `known_hosts` in a fresh container — trusts on first connect, pins after.
-- Fixed a small bug on the way: `file_server { root ... }` isn't valid Caddy
-  syntax (`root` isn't a file_server subdirective) — split into
-  `root * /var/www/html` + `file_server`. Probably was silently no-op-ing
-  before and file_server fell back to its default root.
+* **Secrets**: `.env` and `secrets/` hold the Remnawave token and the SSH
+private key — gitignore both, don't bake them into the image.
+* **State persistence**: `sync_state` volume holds `naive-users.json`
+(username→password mapping). Losing it means every user gets a new
+password and every existing naive+https link breaks. Back it up.
+* **Host key checking**: the scp step uses
+`StrictHostKeyChecking=accept-new` since there's no pre-seeded
+`known_hosts` in a fresh container — trusts on first connect, pins after.
+* **Squad Filter**: Ensure your squad names contain `naive` (e.g. `naive`, `Naive-Users`). Checks are case-insensitive.
+* Fixed a small bug on the way: `file_server { root ... }` isn't valid Caddy
+syntax (`root` isn't a file_server subdirective) — split into
+`root * /var/www/html` + `file_server`. Probably was silently no-op-ing
+before and file_server fell back to its default root.
