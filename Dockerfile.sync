@@ -1,0 +1,10 @@
+FROM alpine:3.20
+
+RUN apk add --no-cache bash curl jq openssl openssh-client coreutils tzdata
+
+WORKDIR /app
+COPY sync/sync-naive.sh /app/sync-naive.sh
+COPY sync/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/sync-naive.sh /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]

@@ -1,0 +1,18 @@
+{
+  order forward_proxy before file_server
+  admin 0.0.0.0:2019
+}
+
+:443, {$TLS_DOMAIN} {
+  tls {$TLS_EMAIL}
+
+  forward_proxy {
+    import naive-users.caddy
+    hide_ip
+    hide_via
+    probe_resistance
+  }
+
+  root * /var/www/html
+  file_server
+}

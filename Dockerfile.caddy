@@ -1,0 +1,16 @@
+FROM caddy:2-builder AS builder
+ 
+# klzgrad/forwardproxy is what gives you the `forward_proxy` directive,
+# `hide_ip`, `hide_via`, `probe_resistance` — same plugin the naiveproxy
+# author maintains. Stock caddy image doesn't ship with it.
+#
+# klzgrad's fork keeps `github.com/caddyserver/forwardproxy` as its own
+# module path in go.mod (so the plugin registers under one name), so a bare
+# `--with github.com/klzgrad/forwardproxy@naive` fails with a module-path
+# mismatch. Has to go in as a replace instead — require the upstream path,
+# swap in klzgrad's naive branch as the actual source:
+RUN xcaddy build --with github.com/caddyserver/forwardproxy@caddy2=github.com/klzgrad/forwardproxy@naive
+ 
+FROM caddy:2
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+ 

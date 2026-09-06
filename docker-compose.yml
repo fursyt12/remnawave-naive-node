@@ -1,0 +1,66 @@
+services:
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    container_name: naive-caddy
+    restart: unless-stopped
+    environment:
+      - TLS_DOMAIN=${TLS_DOMAIN}
+      - TLS_EMAIL=${TLS_EMAIL}
+    ports:
+      - "80:80"     # needed for ACME HTTP-01 challenge (automatic TLS)
+      - "443:443"   # naive proxy + decoy site
+      # admin API (2019) is deliberately NOT published to the host,
+      # it's only reachable from the sync container over naive-net
+    volumes:
+      - ./caddy_config:/etc/caddy
+      - caddy_data:/data
+      - ./html:/var/www/html:ro
+    networks:
+      - naive-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "15m"
+        max-file: "3"
+
+  sync:
+    build:
+      context: .
+      dockerfile: Dockerfile.sync
+    container_name: naive-sync
+    restart: unless-stopped
+    depends_on:
+      - caddy
+    environment:
+      - RW_API=${RW_API}
+      - RW_TOKEN=${RW_TOKEN}
+      - TLS_DOMAIN=${TLS_DOMAIN}
+      - TLS_PORT=${TLS_PORT:-443}
+      - SSH_HOST=${SSH_HOST}
+      - SSH_USER=${SSH_USER}
+      - SSH_PORT=${SSH_PORT:-22}
+      - SSH_REMOTE_PATH=${SSH_REMOTE_PATH}
+      - SSH_KEY_PATH=/run/secrets/ssh_key
+      - CADDY_ADMIN_URL=http://caddy:2019
+      - SYNC_INTERVAL=${SYNC_INTERVAL:-300}
+    volumes:
+      - ./caddy_config:/caddy-config
+      - sync_state:/data
+      - ${SSH_KEY_PATH}:/run/secrets/ssh_key:ro
+    networks:
+      - naive-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "15m"
+        max-file: "3"
+
+volumes:
+  caddy_data:     # Caddy's cert/state storage — automatic TLS survives restarts
+  sync_state:     # naive-users.json (passwords) + frank1.txt — must persist!
+
+networks:
+  naive-net:
+    driver: bridge
